@@ -21,7 +21,7 @@ const primaryNavItems = [
 
 const createContentOptions = [
   { icon: Newspaper, label: "Create Article", description: "Write a new article for the Articles page", path: "/create-article" },
-  { icon: BookOpen, label: "Create Blog", description: "Write a new blog post for the Blogs page", path: "/create-blog" },
+  { icon: Package, label: "Catalog Artifact", description: "Add a new artifact to the catalog", path: "/create-artifact" },
   { icon: PlusSquare, label: "New Find", description: "Document a new archaeological find", path: "/new-find" },
 ];
 

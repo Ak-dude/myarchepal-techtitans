@@ -31,7 +31,9 @@ import EditProfile from "./pages/EditProfile";
 import SignIn from "./pages/Authentication/sign-in";
 import SignUp from "./pages/Authentication/sign-up";
 import Articles from "./pages/Articles";
+import CreateArticle from "./pages/CreateArticle";
 import Artifacts from "./pages/Artifacts";
+import CreateArtifact from "./pages/CreateArtifact";
 import Donations from "./pages/Donations";
 import NotFound from "./pages/NotFound";
 
@@ -61,7 +63,9 @@ const App = () => (
             <Route path="/explore" element={<Explore />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/articles" element={<Articles />} />
+            <Route path="/create-article" element={<CreateArticle />} />
             <Route path="/artifacts" element={<Artifacts />} />
+            <Route path="/create-artifact" element={<CreateArtifact />} />
             <Route path="/donations" element={<Donations />} />
 
             {/* Authentication routes */}
