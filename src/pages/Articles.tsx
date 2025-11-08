@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, BookOpen, Clock, Eye, ThumbsUp, MessageSquare, Bookmark, TrendingUp, Filter, Loader2, FileText, Plus } from "lucide-react";
+import { BookOpen, Clock, Eye, ThumbsUp, MessageSquare, Bookmark, TrendingUp, Filter, Loader2, FileText, Plus } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -74,17 +75,7 @@ const Articles = () => {
       <div className="max-w-md mx-auto">
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/")}
-                className="hover:bg-muted"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-xl font-semibold text-foreground">Articles</h1>
-            </div>
+            <PageHeader />
             <div className="flex items-center gap-2">
               {user && (
                 <Button

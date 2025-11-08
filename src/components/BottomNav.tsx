@@ -115,13 +115,13 @@ export const BottomNav = () => {
                 <Button
                   key={option.label}
                   variant="outline"
-                  className="w-full h-auto py-4 flex items-start gap-3 hover:bg-muted"
+                  className="w-full h-auto py-4 flex items-start gap-3 hover:bg-accent hover:text-accent-foreground"
                   onClick={() => handleContentOptionClick(option.path)}
                 >
                   <option.icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
                   <div className="text-left flex-1">
                     <div className="font-medium">{option.label}</div>
-                    <div className="text-xs text-muted-foreground font-normal mt-1">
+                    <div className="text-xs opacity-70 font-normal mt-1">
                       {option.description}
                     </div>
                   </div>

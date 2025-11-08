@@ -40,6 +40,8 @@ import EditArticle from "./pages/EditArticle";
 import Artifacts from "./pages/Artifacts";
 import ArtifactDetails from "./pages/ArtifactDetails";
 import CreateArtifact from "./pages/CreateArtifact";
+import EditArtifact from "./pages/EditArtifact";
+import Checkout from "./pages/Checkout";
 import Donations from "./pages/Donations";
 import NotFound from "./pages/NotFound";
 
@@ -72,6 +74,7 @@ const App = () => (
             <Route path="/article/:id" element={<ArticleDetails />} />
             <Route path="/artifacts" element={<Artifacts />} />
             <Route path="/artifact/:id" element={<ArtifactDetails />} />
+            <Route path="/checkout/:id" element={<Checkout />} />
             <Route path="/donations" element={<Donations />} />
 
             {/* Protected creation routes - require authentication */}
@@ -98,6 +101,11 @@ const App = () => (
             <Route path="/create-artifact" element={
               <ProtectedRoute>
                 <CreateArtifact />
+              </ProtectedRoute>
+            } />
+            <Route path="/edit-artifact/:id" element={
+              <ProtectedRoute>
+                <EditArtifact />
               </ProtectedRoute>
             } />
 

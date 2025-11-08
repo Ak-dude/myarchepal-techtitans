@@ -11,8 +11,7 @@
  */
 
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/PageHeader";
 import { ArchaeologistAuth } from "@/components/ArchaeologistAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
@@ -30,26 +29,20 @@ const SignUp = () => {
 
   return (
     <ProtectedRoute requireAuth={false}>
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          {/* Back button */}
-          <div className="mb-6">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="hover:bg-muted"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </div>
+      <div className="min-h-screen bg-background">
+        <div className="max-w-md mx-auto">
+          {/* Header with Logo */}
+          <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
+            <PageHeader />
+          </header>
 
-          {/* Archaeologist Auth Component */}
-          <ArchaeologistAuth
-            defaultMode="signup"
-            onAuthSuccess={handleAuthSuccess}
-          />
+          {/* Auth Content */}
+          <div className="p-4 pt-8">
+            <ArchaeologistAuth
+              defaultMode="signup"
+              onAuthSuccess={handleAuthSuccess}
+            />
+          </div>
         </div>
       </div>
     </ProtectedRoute>

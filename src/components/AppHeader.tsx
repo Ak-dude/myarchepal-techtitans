@@ -61,7 +61,14 @@ export const AppHeader = () => {
   return (
     <header className="bg-card p-4 pb-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-foreground">ArchePal</h1>
+        <div className="flex items-center gap-2">
+          <img
+            src="/archepal.png"
+            alt="ArchePal Logo"
+            className="w-8 h-8 object-contain"
+          />
+          <h1 className="text-xl font-semibold text-foreground">ArchePal</h1>
+        </div>
         <div className="flex items-center gap-3">
           {isAuthenticated && (
             <button 
@@ -117,21 +124,7 @@ export const AppHeader = () => {
               Sign in to access your projects and discoveries
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => navigate("/authentication/sign-in")}
-              className="flex-1"
-            >
-              Sign In
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate("/authentication/sign-up")}
-              className="flex-1"
-            >
-              Sign Up
-            </Button>
-          </div>
+          
         </div>
       )}
     </header>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Upload, Image as ImageIcon, MapPin, Calendar, Ruler, Tag, Loader2, Building2, DollarSign } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { ArtifactsService } from "@/services/artifacts";
+import { ArtifactsService, Artifact } from "@/services/artifacts";
 import { SitesService, Site } from "@/services/sites";
 import { AzureOpenAIService } from "@/services/azure-openai";
 import { useAuth } from "@/hooks/use-auth";
@@ -30,12 +30,15 @@ const conditions = ["Excellent", "Good", "Fair", "Fragment", "Poor"];
 const significance = ["Very High", "High", "Medium", "Low"];
 const currencies = ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD"];
 
-const CreateArtifact = () => {
+const EditArtifact = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { isArchaeologist, loading: archaeologistLoading, canCreate } = useArchaeologist();
+  const { isArchaeologist, canCreate } = useArchaeologist();
   const [loading, setLoading] = useState(false);
+  const [fetchingArtifact, setFetchingArtifact] = useState(true);
+  const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [userSites, setUserSites] = useState<Site[]>([]);
   const [sitesLoading, setSitesLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -64,6 +67,98 @@ const CreateArtifact = () => {
     currency: "USD",
     quantity: "1",
   });
+
+  // Fetch artifact data
+  useEffect(() => {
+    const fetchArtifact = async () => {
+      if (!id) {
+        toast({
+          title: "Error",
+          description: "Artifact ID not found",
+          variant: "destructive"
+        });
+        navigate("/artifacts");
+        return;
+      }
+
+      try {
+        setFetchingArtifact(true);
+        const artifactData = await ArtifactsService.getArtifactById(id);
+
+        if (!artifactData) {
+          toast({
+            title: "Error",
+            description: "Artifact not found",
+            variant: "destructive"
+          });
+          navigate("/artifacts");
+          return;
+        }
+
+        // Check if user is the creator
+        if (artifactData.createdBy !== user?.uid) {
+          toast({
+            title: "Unauthorized",
+            description: "You can only edit artifacts you created",
+            variant: "destructive"
+          });
+          navigate(`/artifact/${id}`);
+          return;
+        }
+
+        setArtifact(artifactData);
+
+        // Pre-populate form with artifact data
+        const excavationDate = artifactData.excavationDate instanceof Timestamp
+          ? artifactData.excavationDate.toDate()
+          : artifactData.excavationDate;
+
+        setFormData({
+          name: artifactData.name || "",
+          type: artifactData.type || "",
+          period: artifactData.period || "",
+          date: artifactData.date || "",
+          material: artifactData.material || "",
+          dimensions: artifactData.dimensions || "",
+          location: artifactData.location || "",
+          excavationDate: excavationDate ? new Date(excavationDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          condition: artifactData.condition || "",
+          description: artifactData.description || "",
+          findContext: artifactData.findContext || "",
+          significance: artifactData.significance || "",
+          tags: artifactData.tags?.join(', ') || "",
+          finder: artifactData.finder || "",
+          siteId: artifactData.siteId || "",
+          forSale: artifactData.forSale || false,
+          salePrice: artifactData.salePrice?.toString() || "",
+          currency: artifactData.currency || "USD",
+          quantity: artifactData.quantity?.toString() || "1",
+        });
+
+        // Set existing AI summary if available
+        if (artifactData.aiImageSummary) {
+          setAiSummary(artifactData.aiImageSummary);
+        }
+
+        // Set existing image preview if available
+        if (artifactData.images && artifactData.images.length > 0) {
+          setImagePreview(artifactData.images[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching artifact:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load artifact",
+          variant: "destructive"
+        });
+        navigate("/artifacts");
+      } finally {
+        setFetchingArtifact(false);
+      }
+    };
+
+    fetchArtifact();
+  }, [id, user, navigate, toast]);
 
   // Fetch sites created by the current user
   useEffect(() => {
@@ -131,8 +226,8 @@ const CreateArtifact = () => {
 
   const removeImage = () => {
     setSelectedImage(null);
-    setImagePreview(null);
-    setAiSummary("");
+    setImagePreview(artifact?.images?.[0] || null);
+    setAiSummary(artifact?.aiImageSummary || "");
     setAnalyzingImage(false);
   };
 
@@ -163,6 +258,15 @@ const CreateArtifact = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!id || !artifact) {
+      toast({
+        title: "Error",
+        description: "Artifact not found",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Basic validation
     if (!formData.name || !formData.type || !formData.material || !formData.condition || !formData.location || !formData.description || !formData.significance || !formData.siteId) {
       toast({
@@ -176,7 +280,7 @@ const CreateArtifact = () => {
     if (!user) {
       toast({
         title: "Authentication Error",
-        description: "You must be signed in to create artifacts",
+        description: "You must be signed in to edit artifacts",
         variant: "destructive"
       });
       return;
@@ -188,7 +292,7 @@ const CreateArtifact = () => {
       // Find the selected site to get its name
       const selectedSite = userSites.find(site => site.id === formData.siteId);
 
-      const artifactData = {
+      const updateData = {
         name: formData.name,
         type: formData.type,
         period: formData.period,
@@ -203,29 +307,29 @@ const CreateArtifact = () => {
         significance: formData.significance,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
         finder: formData.finder || "",
-        images: [],
-        aiImageSummary: aiSummary || "",
+        aiImageSummary: aiSummary || artifact.aiImageSummary || "",
+        siteName: selectedSite?.name || artifact.siteName || "",
         siteId: formData.siteId,
-        siteName: selectedSite?.name || "",
-        createdBy: user.uid,
         forSale: formData.forSale,
         salePrice: formData.forSale && formData.salePrice ? parseFloat(formData.salePrice) : undefined,
         currency: formData.forSale && formData.salePrice ? formData.currency : undefined,
         quantity: formData.forSale && formData.quantity ? parseInt(formData.quantity) : undefined,
       };
 
-      const artifactId = await ArtifactsService.createArtifact(artifactData);
+      await ArtifactsService.updateArtifact(id, updateData);
 
-      // Upload image if selected
-      if (selectedImage && artifactId) {
+      // Upload new image if selected
+      if (selectedImage) {
         try {
-          const imageUrl = await ArtifactsService.uploadArtifactImage(artifactId, selectedImage);
-          await ArtifactsService.updateArtifactImages(artifactId, [imageUrl]);
+          const imageUrl = await ArtifactsService.uploadArtifactImage(id, selectedImage);
+          // Append new image to existing images array
+          const existingImages = artifact.images || [];
+          await ArtifactsService.updateArtifactImages(id, [imageUrl, ...existingImages]);
         } catch (imageError) {
           console.error("Error uploading image:", imageError);
           toast({
             title: "Warning",
-            description: "Artifact created but image upload failed",
+            description: "Artifact updated but image upload failed",
             variant: "destructive"
           });
         }
@@ -233,25 +337,63 @@ const CreateArtifact = () => {
 
       toast({
         title: "Success!",
-        description: "Artifact has been successfully cataloged",
+        description: "Artifact has been successfully updated",
       });
 
-      // Navigate to artifacts page after successful creation
+      // Navigate back to artifact details page
       setTimeout(() => {
-        navigate("/artifacts");
+        navigate(`/artifact/${id}`);
       }, 1500);
 
     } catch (error) {
-      console.error("Error creating artifact:", error);
+      console.error("Error updating artifact:", error);
       toast({
         title: "Error",
-        description: "Failed to create artifact. Please try again.",
+        description: "Failed to update artifact. Please try again.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
+
+  if (fetchingArtifact) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading artifact...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canCreate) {
+    return (
+      <div className="min-h-screen bg-background pb-24">
+        <div className="max-w-md mx-auto">
+          <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
+            <PageHeader />
+          </header>
+          <div className="p-4">
+            <Card>
+              <div className="p-6 text-center">
+                <p className="text-muted-foreground mb-4">
+                  Only verified archaeologists can edit artifacts.
+                </p>
+                <Button
+                  onClick={() => navigate('/authentication/sign-in')}
+                  variant="outline"
+                >
+                  Sign In as Archaeologist
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -260,50 +402,6 @@ const CreateArtifact = () => {
           <PageHeader />
         </header>
 
-        {/* Auth & Site Status */}
-        {!canCreate && (
-          <div className="p-4">
-            <Card>
-              <div className="p-6 text-center">
-                <p className="text-muted-foreground mb-4">
-                  {!user ? 'Please sign in as an archaeologist to catalog artifacts.' :
-                   !isArchaeologist ? 'Only verified archaeologists can catalog artifacts.' :
-                   'Loading...'}
-                </p>
-                {!user && (
-                  <Button
-                    onClick={() => navigate('/authentication/sign-in')}
-                    variant="outline"
-                  >
-                    Sign In as Archaeologist
-                  </Button>
-                )}
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {canCreate && userSites.length === 0 && !sitesLoading && (
-          <div className="p-4">
-            <Card>
-              <div className="p-6 text-center">
-                <Building2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground mb-4">
-                  You need to create a site first before cataloging artifacts.
-                </p>
-                <Button
-                  onClick={() => navigate('/new-site')}
-                  variant="outline"
-                >
-                  Create Your First Site
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Form - Only show if user can create and has sites */}
-        {canCreate && userSites.length > 0 && (
         <div className="p-4 space-y-6">
           <Card className="p-6 border-border">
             {imagePreview ? (
@@ -313,15 +411,17 @@ const CreateArtifact = () => {
                   alt="Artifact preview"
                   className="w-full h-48 object-cover rounded-lg mb-4"
                 />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                  onClick={removeImage}
-                >
-                  Remove
-                </Button>
+                {selectedImage && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={removeImage}
+                  >
+                    Remove New Image
+                  </Button>
+                )}
               </div>
             ) : (
               <label htmlFor="image-upload" className="cursor-pointer">
@@ -345,7 +445,7 @@ const CreateArtifact = () => {
               <Button variant="outline" className="w-full" size="sm" type="button" asChild>
                 <span>
                   <Upload className="w-4 h-4 mr-2" />
-                  {selectedImage ? 'Change Image' : 'Upload Image'}
+                  {selectedImage ? 'Change New Image' : imagePreview ? 'Add New Image' : 'Upload Image'}
                 </span>
               </Button>
             </label>
@@ -413,9 +513,6 @@ const CreateArtifact = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Only sites you created are shown. Artifacts must be associated with a site.
-              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -711,19 +808,18 @@ const CreateArtifact = () => {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Cataloging...
+                    Updating...
                   </>
                 ) : (
-                  "Catalog Artifact"
+                  "Update Artifact"
                 )}
               </Button>
             </div>
           </form>
         </div>
-        )}
       </div>
     </div>
   );
 };
 
-export default CreateArtifact;
+export default EditArtifact;

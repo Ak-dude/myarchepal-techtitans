@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Calendar, Users, FileText, Search, Loader2, Plus } from "lucide-react";
+import { MapPin, Calendar, Users, FileText, Search, Loader2, Plus } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -99,17 +100,7 @@ const SiteLists = () => {
       <div className="max-w-md mx-auto">
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/")}
-                className="hover:bg-muted"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-xl font-semibold text-foreground">Site Lists</h1>
-            </div>
+            <PageHeader />
             {user && (
               <Button
                 variant="outline"
@@ -168,8 +159,25 @@ const SiteLists = () => {
                 onClick={() => handleSiteClick(site.id)}
               >
                 <div className="flex gap-3">
-                  <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-3xl">🏛️</span>
+                  <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {site.images && site.images.length > 0 ? (
+                      <img
+                        src={site.images[0]}
+                        alt={site.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = '<span class="text-3xl">🏛️</span>';
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span className="text-3xl">🏛️</span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-2">

@@ -43,6 +43,11 @@ export interface Artifact {
   createdAt?: Date | Timestamp;
   updatedAt?: Date | Timestamp;
   createdBy?: string; // UID of the archaeologist who cataloged it
+  // Sale-related fields
+  forSale?: boolean; // Whether the artifact is marked for sale
+  salePrice?: number; // Price per item when marked for sale
+  currency?: string; // Currency code (e.g., "USD", "EUR", "GBP")
+  quantity?: number; // Number of items available for sale
 }
 
 // Collection reference - with error handling

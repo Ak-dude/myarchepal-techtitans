@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Calendar, Users, FileText, Edit, Share2, Loader2, ChevronRight } from "lucide-react";
+import { MapPin, Calendar, Users, FileText, Edit, Share2, Loader2, ChevronRight } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import { PageHeader } from "@/components/PageHeader";
+import { SiteConditions } from "@/components/SiteConditions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -155,19 +157,7 @@ const SiteDetails = () => {
         {/* Header */}
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(-1)}
-                className="hover:bg-muted"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-lg font-semibold text-foreground truncate">
-                Site Details
-              </h1>
-            </div>
+            <PageHeader />
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -192,12 +182,60 @@ const SiteDetails = () => {
         </header>
 
         <div className="p-4 space-y-4">
+          {/* Site Images */}
+          {site.images && site.images.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="w-full h-64 relative overflow-hidden rounded-lg">
+                  <img
+                    src={site.images[0]}
+                    alt={site.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                </div>
+                {site.images.length > 1 && (
+                  <div className="flex gap-2 mt-2 overflow-x-auto">
+                    {site.images.slice(1).map((image, index) => (
+                      <img
+                        key={index}
+                        src={image}
+                        alt={`${site.name} ${index + 2}`}
+                        className="w-20 h-20 object-cover rounded-lg flex-shrink-0 cursor-pointer hover:opacity-80"
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Site Header */}
           <Card>
             <CardContent className="pt-6">
               <div className="flex gap-4">
-                <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-4xl">🏛️</span>
+                <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {site.images && site.images.length > 0 ? (
+                    <img
+                      src={site.images[0]}
+                      alt={site.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = '<span class="text-4xl">🏛️</span>';
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="text-4xl">🏛️</span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -362,6 +400,12 @@ const SiteDetails = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Site Conditions - Weather based on site coordinates or default NC coordinates */}
+        <SiteConditions
+          latitude={site.location?.latitude || 35.7596}
+          longitude={site.location?.longitude || -79.0193}
+        />
 
         <BottomNav />
       </div>

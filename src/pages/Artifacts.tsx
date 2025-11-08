@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, MapPin, Calendar, Filter, Grid3X3, List, Loader2, Building2, Plus } from "lucide-react";
+import { Search, MapPin, Calendar, Filter, Grid3X3, List, Loader2, Building2, Plus, ShoppingCart } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,6 @@ import { Timestamp } from "firebase/firestore";
 
 const periods = ["All", "Imperial Roman", "Roman", "Late Roman", "Byzantine", "Medieval"];
 const types = ["All", "Coin", "Ceramic", "Weapon", "Glass", "Personal Ornament", "Sculpture"];
-const conditions = ["All", "Excellent", "Good", "Fair", "Fragment", "Poor"];
 
 const Artifacts = () => {
   const navigate = useNavigate();
@@ -25,10 +25,12 @@ const Artifacts = () => {
   const [selectedType, setSelectedType] = useState("All");
   const [sortBy, setSortBy] = useState("recent");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showForSaleOnly, setShowForSaleOnly] = useState(false);
 
   const filteredArtifacts = artifacts.filter(artifact => {
     if (selectedPeriod !== "All" && artifact.period !== selectedPeriod) return false;
     if (selectedType !== "All" && artifact.type !== selectedType) return false;
+    if (showForSaleOnly && !artifact.forSale) return false;
     if (searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase();
       return artifact.name.toLowerCase().includes(query) ||
@@ -121,17 +123,7 @@ const Artifacts = () => {
       <div className="max-w-md mx-auto">
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/")}
-                className="hover:bg-muted"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-xl font-semibold text-foreground">Artifacts Catalog</h1>
-            </div>
+            <PageHeader />
             {user && (
               <Button
                 variant="outline"
@@ -155,7 +147,7 @@ const Artifacts = () => {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-2">
             <Card className="p-3 border-border text-center">
               <p className="text-2xl font-bold text-primary">{artifacts.length}</p>
               <p className="text-xs text-muted-foreground">Total</p>
@@ -170,7 +162,16 @@ const Artifacts = () => {
               <p className="text-2xl font-bold text-green-600">
                 {artifacts.filter(a => a.condition === 'Excellent' || a.condition === 'Good').length}
               </p>
-              <p className="text-xs text-muted-foreground">Good Condition</p>
+              <p className="text-xs text-muted-foreground">Good</p>
+            </Card>
+            <Card
+              className={`p-3 border-border text-center cursor-pointer transition-all ${showForSaleOnly ? 'bg-blue-500/10 border-blue-500' : ''}`}
+              onClick={() => setShowForSaleOnly(!showForSaleOnly)}
+            >
+              <p className="text-2xl font-bold text-blue-600">
+                {artifacts.filter(a => a.forSale).length}
+              </p>
+              <p className="text-xs text-muted-foreground">For Sale</p>
             </Card>
           </div>
         </header>
@@ -264,10 +265,45 @@ const Artifacts = () => {
                             <h3 className="font-semibold text-foreground line-clamp-1">
                               {artifact.name}
                             </h3>
-                            <Badge variant="outline" className={getSignificanceColor(artifact.significance)}>
-                              {artifact.significance}
-                            </Badge>
+                            <div className="flex gap-1">
+                              {artifact.forSale && (
+                                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                                  <ShoppingCart className="w-3 h-3 mr-1" />
+                                  For Sale
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className={getSignificanceColor(artifact.significance)}>
+                                {artifact.significance}
+                              </Badge>
+                            </div>
                           </div>
+
+                          {artifact.forSale && artifact.salePrice && (
+                            <div className="mb-2 p-2 bg-blue-500/5 rounded-md border border-blue-500/10">
+                              <div className="flex items-center justify-between text-sm mb-2">
+                                <span className="font-semibold text-blue-600">
+                                  {artifact.currency || 'USD'} {artifact.salePrice.toLocaleString()}
+                                  <span className="text-xs text-muted-foreground ml-1">per item</span>
+                                </span>
+                                {artifact.quantity && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Qty: {artifact.quantity}
+                                  </span>
+                                )}
+                              </div>
+                              <Button
+                                className="w-full bg-blue-600 hover:bg-blue-700 h-7 px-3 text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/checkout/${artifact.id}`);
+                                }}
+                                disabled={!artifact.quantity || artifact.quantity === 0}
+                              >
+                                <ShoppingCart className="w-3 h-3 mr-1.5" />
+                                {artifact.quantity && artifact.quantity > 0 ? 'Buy Now' : 'Out of Stock'}
+                              </Button>
+                            </div>
+                          )}
 
                           <div className="space-y-1 mb-3">
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">

@@ -63,8 +63,25 @@ export const ActiveProject = () => {
               onClick={() => navigate(`/site/${site.id}`)}
             >
               <div className="flex gap-3">
-                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-2xl">🏛️</span>
+                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {site.images && site.images.length > 0 ? (
+                    <img
+                      src={site.images[0]}
+                      alt={site.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = '<span class="text-2xl">🏛️</span>';
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="text-2xl">🏛️</span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-2">

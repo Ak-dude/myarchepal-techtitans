@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { ChevronRight, Loader2, Calendar, MapPin } from "lucide-react";
+import { ChevronRight, Loader2, MapPin } from "lucide-react";
 import { useSites } from "@/hooks/use-sites";
 import { Timestamp } from "firebase/firestore";
 
@@ -74,8 +74,25 @@ export const RecentFinds = () => {
               onClick={() => navigate(`/site/${site.id}`)}
             >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
-                  <span className="text-2xl">🏛️</span>
+                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+                  {site.images && site.images.length > 0 ? (
+                    <img
+                      src={site.images[0]}
+                      alt={site.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = '<span class="text-2xl">🏛️</span>';
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="text-2xl">🏛️</span>
+                  )}
                 </div>
                 <div>
                   <h4 className="font-semibold text-sm text-foreground line-clamp-1">{site.name}</h4>

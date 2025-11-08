@@ -1,6 +1,8 @@
 import { Map, FlaskConical, Users, Compass } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/hooks/use-auth";
+import { useArchaeologist } from "@/hooks/use-archaeologist";
 
 const actions = [
   { icon: Compass, label: "Explore Sites", subtitle: "Browse discoveries", color: "bg-primary", textColor: "text-primary-foreground", path: "/site-lists" },
@@ -11,7 +13,14 @@ const actions = [
 
 export const QuickActions = () => {
   const navigate = useNavigate();
-  
+  const { user } = useAuth();
+  const { isArchaeologist } = useArchaeologist();
+
+  // Only show Quick Actions for logged-in archaeologists
+  if (!user || !isArchaeologist) {
+    return null;
+  }
+
   return (
     <div className="px-4 py-6">
       <h3 className="text-base font-semibold text-foreground mb-4">Quick Actions</h3>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Calendar, FileText, Camera, Save, Loader2 } from "lucide-react";
+import { MapPin, FileText, Save, Loader2, Upload, Image as ImageIcon } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +21,8 @@ const NewSite = () => {
   const { user } = useAuth();
   const { isArchaeologist, loading: archaeologistLoading, canCreate } = useArchaeologist();
   const [loading, setLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -61,6 +64,45 @@ const NewSite = () => {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setSelectedImage(file);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,6 +158,21 @@ const NewSite = () => {
 
       const siteId = await SitesService.createSite(siteData);
 
+      // Upload image if selected
+      if (selectedImage && siteId) {
+        try {
+          const imageUrl = await SitesService.uploadSiteImage(siteId, selectedImage);
+          await SitesService.updateSiteImages(siteId, [imageUrl]);
+        } catch (imageError) {
+          console.error("Error uploading image:", imageError);
+          toast({
+            title: "Warning",
+            description: "Site created but image upload failed",
+            variant: "destructive"
+          });
+        }
+      }
+
       toast({
         title: "Success!",
         description: "Archaeological site has been added successfully",
@@ -143,17 +200,7 @@ const NewSite = () => {
       <div className="max-w-md mx-auto">
         {/* Header */}
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="hover:bg-muted"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-xl font-semibold text-foreground">Add New Site</h1>
-          </div>
+          <PageHeader />
         </header>
 
         {/* Auth & Archaeologist Status */}
@@ -200,6 +247,53 @@ const NewSite = () => {
         {/* Form - Only show if user can create */}
         {canCreate && (
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* Image Upload Section - Moved to top */}
+          <Card className="p-6 border-border">
+            {imagePreview ? (
+              <div className="relative">
+                <img
+                  src={imagePreview}
+                  alt="Site preview"
+                  className="w-full h-48 object-cover rounded-lg mb-4"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={removeImage}
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <label htmlFor="image-upload" className="cursor-pointer">
+                <div className="flex items-center justify-center h-48 bg-muted rounded-lg mb-4 hover:bg-muted/80 transition-colors">
+                  <div className="text-center">
+                    <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Click to add site image</p>
+                    <p className="text-xs text-muted-foreground mt-1">Max 5MB (JPG, PNG, GIF)</p>
+                  </div>
+                </div>
+              </label>
+            )}
+            <input
+              id="image-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            <label htmlFor="image-upload">
+              <Button variant="outline" className="w-full" size="sm" type="button" asChild>
+                <span>
+                  <Upload className="w-4 h-4 mr-2" />
+                  {selectedImage ? 'Change Image' : 'Upload Image'}
+                </span>
+              </Button>
+            </label>
+          </Card>
+
           {/* Basic Information */}
           <Card>
             <CardHeader>
@@ -346,30 +440,6 @@ const NewSite = () => {
                   />
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Media Upload (placeholder for future implementation) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Camera className="w-4 h-4" />
-                Media
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled
-              >
-                <Camera className="w-4 h-4 mr-2" />
-                Upload Images (Coming Soon)
-              </Button>
-              <p className="text-xs text-muted-foreground mt-2">
-                Image upload functionality will be available in the next update
-              </p>
             </CardContent>
           </Card>
 

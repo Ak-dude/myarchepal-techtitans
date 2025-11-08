@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is an archaeologist
+    function isArchaeologist() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/archaeologists/$(request.auth.uid));
+    }
+
+    // Sites Collection - Public read, archaeologist write
+    match /Sites/{siteId} {
+      allow read: if true;  // Anyone can read
+      allow create, update, delete: if isArchaeologist();
+    }
+
+    // Articles Collection - Public read, archaeologist write
+    match /Articles/{articleId} {
+      allow read: if true;  // Anyone can read
+      allow create, update, delete: if isArchaeologist();
+    }
+
+    // Artifacts Collection - Public read, archaeologist write
+    match /Artifacts/{artifactId} {
+      allow read: if true;  // Anyone can read
+      allow create, update, delete: if isArchaeologist();
+
+      // PURCHASE RULE: Allow ANYONE (no authentication) to reduce quantity for purchases
+      // Only allows: 1) updating quantity and updatedAt fields, 2) artifact is for sale, 3) quantity is decreasing
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantity', 'updatedAt']) &&
+                      resource.data.forSale == true &&
+                      request.resource.data.quantity < resource.data.quantity;
+    }
+
+    // Archaeologists Collection - Manage archaeologist roles
+    match /archaeologists/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Users Collection - Private user data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

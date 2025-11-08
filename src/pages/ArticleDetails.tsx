@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Eye, ThumbsUp, MessageSquare, Clock, Share2, Edit, Loader2, User } from "lucide-react";
+import { Eye, ThumbsUp, MessageSquare, Clock, Share2, Edit, Loader2, User } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -124,19 +125,7 @@ const ArticleDetails = () => {
         {/* Header */}
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(-1)}
-                className="hover:bg-muted"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-lg font-semibold text-foreground truncate">
-                Article
-              </h1>
-            </div>
+            <PageHeader />
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"

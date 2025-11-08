@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, FileText, Tag, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { FileText, Tag, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -202,17 +203,7 @@ const CreateArticle = () => {
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-md mx-auto">
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="hover:bg-muted"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-xl font-semibold text-foreground">Create Article</h1>
-          </div>
+          <PageHeader />
         </header>
 
         {/* Auth Status */}

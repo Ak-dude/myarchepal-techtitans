@@ -16,6 +16,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Settings, Bell, Shield, HelpCircle, LogOut, Building2, Award, Calendar, Loader2, UserPlus } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -109,7 +110,7 @@ const Account = () => {
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-md mx-auto">
         <header className="bg-card p-4 border-b border-border">
-          <h1 className="text-xl font-semibold text-foreground">Account</h1>
+          <PageHeader />
         </header>
 
         <div className="p-4 space-y-4">

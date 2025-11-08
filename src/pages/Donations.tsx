@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Heart, CreditCard, DollarSign, Building2, Mail } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
+import { Heart, CreditCard, DollarSign, Building2, Mail } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -137,7 +137,9 @@ const Donations = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="max-w-md mx-auto bg-background min-h-screen">
-        <AppHeader />
+        <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
+          <PageHeader />
+        </header>
 
         {/* Thank You Message */}
         {showThankYou && (
@@ -168,16 +170,6 @@ const Donations = () => {
 
         {/* Header Section */}
         <div className="p-6 space-y-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(-1)}
-            className="mb-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-
           <div className="text-center space-y-2">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
               <Heart className="w-8 h-8 text-primary" />
