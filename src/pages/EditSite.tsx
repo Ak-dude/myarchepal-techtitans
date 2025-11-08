@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { MapPin, FileText, Save, Loader2, Upload, Image as ImageIcon } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, MapPin, Calendar, FileText, Camera, Save, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,19 +9,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BottomNav } from "@/components/BottomNav";
 import { useToast } from "@/components/ui/use-toast";
-import { SitesService } from "@/services/sites";
+import { SitesService, Site } from "@/services/sites";
 import { Timestamp } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { useArchaeologist } from "@/hooks/use-archaeologist";
 
-const NewSite = () => {
+const EditSite = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { isArchaeologist, loading: archaeologistLoading, canCreate } = useArchaeologist();
+  const { isArchaeologist, loading: archaeologistLoading } = useArchaeologist();
   const [loading, setLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [siteLoading, setSiteLoading] = useState(true);
+  const [site, setSite] = useState<Site | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -36,9 +37,75 @@ const NewSite = () => {
       longitude: ""
     },
     period: "",
-    status: "active",
-    dateDiscovered: new Date().toISOString().split('T')[0]
+    status: "active" as "active" | "inactive" | "archived",
+    dateDiscovered: ""
   });
+
+  useEffect(() => {
+    const fetchSite = async () => {
+      if (!id) {
+        setError("Site ID not found");
+        setSiteLoading(false);
+        return;
+      }
+
+      try {
+        setSiteLoading(true);
+        const siteData = await SitesService.getSiteById(id);
+
+        if (!siteData) {
+          setError("Site not found");
+          return;
+        }
+
+        setSite(siteData);
+
+        // Convert Timestamp to date string for input
+        const dateDiscovered = siteData.dateDiscovered instanceof Timestamp
+          ? siteData.dateDiscovered.toDate().toISOString().split('T')[0]
+          : siteData.dateDiscovered instanceof Date
+          ? siteData.dateDiscovered.toISOString().split('T')[0]
+          : "";
+
+        // Populate form with existing data
+        setFormData({
+          name: siteData.name || "",
+          description: siteData.description || "",
+          location: {
+            address: siteData.location?.address || "",
+            country: siteData.location?.country || "",
+            region: siteData.location?.region || "",
+            latitude: siteData.location?.latitude?.toString() || "",
+            longitude: siteData.location?.longitude?.toString() || ""
+          },
+          period: siteData.period || "",
+          status: siteData.status || "active",
+          dateDiscovered
+        });
+      } catch (error) {
+        console.error("Error fetching site:", error);
+        setError("Failed to load site details");
+      } finally {
+        setSiteLoading(false);
+      }
+    };
+
+    fetchSite();
+  }, [id]);
+
+  // Check if user can edit this site
+  const canEdit = user && isArchaeologist && site && site.createdBy === user.uid;
+
+  useEffect(() => {
+    if (!siteLoading && !archaeologistLoading && !canEdit) {
+      toast({
+        title: "Access Denied",
+        description: "You can only edit sites that you created",
+        variant: "destructive"
+      });
+      navigate(`/site/${id}`);
+    }
+  }, [canEdit, siteLoading, archaeologistLoading, navigate, id, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -66,55 +133,17 @@ const NewSite = () => {
     }));
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Check file size (limit to 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please select an image smaller than 5MB",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Check file type
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: "Invalid file type",
-          description: "Please select an image file",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      setSelectedImage(file);
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removeImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Debug: Log user information
-    console.log('🏛️ Creating site - User info:', {
-      user: user,
-      uid: user?.uid,
-      email: user?.email,
-      isAuthenticated: !!user
-    });
+    if (!site) {
+      toast({
+        title: "Error",
+        description: "Site data not loaded",
+        variant: "destructive"
+      });
+      return;
+    }
 
     // Basic validation
     if (!formData.name || !formData.description) {
@@ -126,19 +155,10 @@ const NewSite = () => {
       return;
     }
 
-    if (!user) {
-      toast({
-        title: "Authentication Error",
-        description: "You must be signed in to create a site",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const siteData = {
+      const updateData = {
         name: formData.name,
         description: formData.description,
         location: {
@@ -149,45 +169,25 @@ const NewSite = () => {
           longitude: formData.location.longitude ? parseFloat(formData.location.longitude) : 0
         },
         period: formData.period || "",
-        status: formData.status as "active" | "inactive" | "archived",
+        status: formData.status,
         dateDiscovered: Timestamp.fromDate(new Date(formData.dateDiscovered)),
-        artifacts: [],
-        images: [],
-        createdBy: user?.uid || "anonymous"
       };
 
-      const siteId = await SitesService.createSite(siteData);
-
-      // Upload image if selected
-      if (selectedImage && siteId) {
-        try {
-          const imageUrl = await SitesService.uploadSiteImage(siteId, selectedImage);
-          await SitesService.updateSiteImages(siteId, [imageUrl]);
-        } catch (imageError) {
-          console.error("Error uploading image:", imageError);
-          toast({
-            title: "Warning",
-            description: "Site created but image upload failed",
-            variant: "destructive"
-          });
-        }
-      }
+      await SitesService.updateSite(site.id!, updateData);
 
       toast({
         title: "Success!",
-        description: "Archaeological site has been added successfully",
+        description: "Site has been updated successfully",
       });
 
-      // Navigate to site lists after successful creation
-      setTimeout(() => {
-        navigate("/site-lists");
-      }, 1500);
+      // Navigate back to site details
+      navigate(`/site/${site.id}`);
 
     } catch (error) {
-      console.error("Error creating site:", error);
+      console.error("Error updating site:", error);
       toast({
         title: "Error",
-        description: "Failed to create site. Please check your Firebase configuration.",
+        description: "Failed to update site. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -195,105 +195,64 @@ const NewSite = () => {
     }
   };
 
+  if (siteLoading || archaeologistLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading site...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !site) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+          <p className="text-red-500 mb-4">{error || "Site not found"}</p>
+          <Button onClick={() => navigate("/site-lists")} variant="outline">
+            Back to Sites
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canEdit) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-yellow-500" />
+          <p className="text-muted-foreground mb-4">You can only edit sites that you created</p>
+          <Button onClick={() => navigate(`/site/${id}`)} variant="outline">
+            Back to Site Details
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-md mx-auto">
         {/* Header */}
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
-          <PageHeader />
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(`/site/${id}`)}
+              className="hover:bg-muted"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="text-xl font-semibold text-foreground">Edit Site</h1>
+          </div>
         </header>
 
-        {/* Auth & Archaeologist Status */}
-        <div className="p-4 bg-muted/50">
-          <div className="text-sm space-y-1">
-            <div>
-              <strong>Auth Status:</strong> {user ? `✅ Signed in as ${user.email}` : '❌ Not signed in'}
-            </div>
-            <div>
-              <strong>Archaeologist Status:</strong> {
-                archaeologistLoading ? '⏳ Checking...' :
-                isArchaeologist ? '✅ Verified Archaeologist' : '❌ Not an archaeologist'
-              }
-            </div>
-            <div>
-              <strong>Can Create:</strong> {canCreate ? '✅ Yes' : '❌ No'}
-            </div>
-          </div>
-        </div>
-
-        {/* Show message for non-archaeologists */}
-        {!canCreate && (
-          <div className="p-4">
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-muted-foreground mb-4">
-                  {!user ? 'Please sign in as an archaeologist to create archaeological sites.' :
-                   !isArchaeologist ? 'Only verified archaeologists can create sites.' :
-                   'Loading...'}
-                </p>
-                {!user && (
-                  <Button
-                    onClick={() => navigate('/authentication/sign-in')}
-                    variant="outline"
-                  >
-                    Sign In as Archaeologist
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Form - Only show if user can create */}
-        {canCreate && (
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {/* Image Upload Section - Moved to top */}
-          <Card className="p-6 border-border">
-            {imagePreview ? (
-              <div className="relative">
-                <img
-                  src={imagePreview}
-                  alt="Site preview"
-                  className="w-full h-48 object-cover rounded-lg mb-4"
-                />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                  onClick={removeImage}
-                >
-                  Remove
-                </Button>
-              </div>
-            ) : (
-              <label htmlFor="image-upload" className="cursor-pointer">
-                <div className="flex items-center justify-center h-48 bg-muted rounded-lg mb-4 hover:bg-muted/80 transition-colors">
-                  <div className="text-center">
-                    <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Click to add site image</p>
-                    <p className="text-xs text-muted-foreground mt-1">Max 5MB (JPG, PNG, GIF)</p>
-                  </div>
-                </div>
-              </label>
-            )}
-            <input
-              id="image-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleImageSelect}
-              className="hidden"
-            />
-            <label htmlFor="image-upload">
-              <Button variant="outline" className="w-full" size="sm" type="button" asChild>
-                <span>
-                  <Upload className="w-4 h-4 mr-2" />
-                  {selectedImage ? 'Change Image' : 'Upload Image'}
-                </span>
-              </Button>
-            </label>
-          </Card>
-
           {/* Basic Information */}
           <Card>
             <CardHeader>
@@ -444,7 +403,7 @@ const NewSite = () => {
           </Card>
 
           {/* Submit Button */}
-          <div className="pt-4">
+          <div className="pt-4 space-y-2">
             <Button
               type="submit"
               className="w-full"
@@ -453,18 +412,27 @@ const NewSite = () => {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating Site...
+                  Updating Site...
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  Save Archaeological Site
+                  Update Site
                 </>
               )}
             </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate(`/site/${id}`)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
           </div>
         </form>
-        )}
 
         <BottomNav />
       </div>
@@ -472,4 +440,4 @@ const NewSite = () => {
   );
 };
 
-export default NewSite;
+export default EditSite;

@@ -1,134 +1,93 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, BookOpen, Clock, Eye, ThumbsUp, MessageSquare, Bookmark, TrendingUp, Filter } from "lucide-react";
+import { BookOpen, Clock, Eye, ThumbsUp, MessageSquare, Bookmark, TrendingUp, Filter, Loader2, FileText, Plus } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-const articles = [
-  {
-    id: 1,
-    title: "New Dating Techniques for Roman Pottery",
-    excerpt: "Revolutionary carbon dating methods reveal surprising age of recently discovered ceramic fragments from Pompeii excavation sites...",
-    author: "Dr. Sarah Johnson",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-    category: "Research",
-    readTime: "8 min read",
-    publishedDate: "2 hours ago",
-    views: 1250,
-    likes: 89,
-    comments: 12,
-    image: "🏺",
-    featured: true,
-    tags: ["Dating Methods", "Roman", "Pottery"]
-  },
-  {
-    id: 2,
-    title: "Digital Archaeology: 3D Scanning in the Field",
-    excerpt: "How modern technology is transforming archaeological documentation with photogrammetry and LiDAR scanning techniques...",
-    author: "Prof. Michael Chen",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=michael",
-    category: "Technology",
-    readTime: "12 min read",
-    publishedDate: "1 day ago",
-    views: 2340,
-    likes: 156,
-    comments: 28,
-    image: "📡",
-    featured: true,
-    tags: ["3D Scanning", "Technology", "Documentation"]
-  },
-  {
-    id: 3,
-    title: "Preservation Techniques for Metal Artifacts",
-    excerpt: "Essential guide to preventing corrosion and maintaining the integrity of iron and bronze discoveries during excavation...",
-    author: "Emma Rodriguez",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=emma",
-    category: "Conservation",
-    readTime: "6 min read",
-    publishedDate: "3 days ago",
-    views: 890,
-    likes: 45,
-    comments: 8,
-    image: "⚔️",
-    featured: false,
-    tags: ["Conservation", "Metal", "Preservation"]
-  },
-  {
-    id: 4,
-    title: "Understanding Stratigraphy: Layer Analysis Guide",
-    excerpt: "Comprehensive overview of stratigraphic principles and their application in modern archaeological excavations...",
-    author: "James Wilson",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=james",
-    category: "Methodology",
-    readTime: "10 min read",
-    publishedDate: "5 days ago",
-    views: 1567,
-    likes: 78,
-    comments: 15,
-    image: "📊",
-    featured: false,
-    tags: ["Stratigraphy", "Methodology", "Excavation"]
-  },
-  {
-    id: 5,
-    title: "Climate Impact on Archaeological Sites",
-    excerpt: "Rising temperatures and extreme weather events pose unprecedented challenges to site preservation worldwide...",
-    author: "Dr. Lisa Zhang",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=lisa",
-    category: "Environment",
-    readTime: "15 min read",
-    publishedDate: "1 week ago",
-    views: 3210,
-    likes: 234,
-    comments: 45,
-    image: "🌡️",
-    featured: true,
-    tags: ["Climate", "Preservation", "Environment"]
-  },
-  {
-    id: 6,
-    title: "Ancient DNA Analysis: Recent Breakthroughs",
-    excerpt: "New extraction methods allow researchers to recover genetic material from increasingly degraded specimens...",
-    author: "Dr. Robert Kumar",
-    authorAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=robert",
-    category: "Research",
-    readTime: "11 min read",
-    publishedDate: "2 weeks ago",
-    views: 4520,
-    likes: 312,
-    comments: 67,
-    image: "🧬",
-    featured: false,
-    tags: ["DNA", "Analysis", "Research"]
-  }
-];
-
-const categories = ["All", "Research", "Technology", "Conservation", "Methodology", "Environment"];
+import { useArticles, useFeaturedArticles, useArticlesByCategory, useArticleSearch } from "@/hooks/use-articles";
+import { useAuth } from "@/hooks/use-auth";
+import { Timestamp } from "firebase/firestore";
 
 const Articles = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Use different hooks based on current state
+  const { articles: allArticles, loading: allLoading, error: allError } = useArticles();
+  const { articles: featuredArticles } = useFeaturedArticles();
+  const { articles: categoryArticles, loading: categoryLoading } = useArticlesByCategory(selectedCategory);
+  const { articles: searchResults, loading: searchLoading } = useArticleSearch(searchQuery);
+
+  // Extract unique categories from all articles
+  const [categories, setCategories] = useState<string[]>(["All"]);
+
+  useEffect(() => {
+    if (allArticles.length > 0) {
+      const uniqueCategories = Array.from(new Set(allArticles.map(article => article.category)));
+      setCategories(["All", ...uniqueCategories.sort()]);
+    }
+  }, [allArticles]);
+
+  // Determine which articles to show
+  const getArticlesToShow = () => {
+    if (searchQuery.trim()) {
+      return searchResults;
+    } else if (selectedCategory === "All") {
+      return allArticles;
+    } else {
+      return categoryArticles;
+    }
+  };
+
+  const articles = getArticlesToShow();
+  const loading = searchQuery.trim() ? searchLoading :
+                  selectedCategory === "All" ? allLoading : categoryLoading;
+
+  const formatDate = (date: Date | Timestamp | undefined) => {
+    if (!date) return "Unknown date";
+    const d = date instanceof Timestamp ? date.toDate() : date;
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffHours < 1) return "Just now";
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    if (diffDays === 1) return "1 day ago";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 14) return "1 week ago";
+    return `${Math.floor(diffDays / 7)} weeks ago`;
+  };
+
+  const handleArticleClick = (articleId: string) => {
+    navigate(`/article/${articleId}`);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-md mx-auto">
         <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/")}
-                className="hover:bg-muted"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-xl font-semibold text-foreground">Articles</h1>
-            </div>
+            <PageHeader />
             <div className="flex items-center gap-2">
+              {user && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/create-article")}
+                  className="hover:bg-muted mr-2"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Create
+                </Button>
+              )}
               <Button variant="ghost" size="icon" className="hover:bg-muted">
                 <Bookmark className="w-5 h-5" />
               </Button>
@@ -142,12 +101,14 @@ const Articles = () => {
             <Input
               placeholder="Search articles, authors..."
               className="pl-10 border-border"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         </header>
 
         <div className="px-4 pt-4">
-          <Tabs defaultValue="All" className="w-full">
+          <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
             <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-0 bg-transparent border-b rounded-none">
               {categories.map((category) => (
                 <TabsTrigger
@@ -160,124 +121,224 @@ const Articles = () => {
               ))}
             </TabsList>
             <TabsContent value="All" className="mt-4 space-y-4">
-              {articles.filter(article => article.featured).length > 0 && (
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold text-foreground">Featured Articles</h2>
-                    <TrendingUp className="w-4 h-4 text-primary" />
-                  </div>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                  <span className="text-muted-foreground">Loading articles...</span>
+                </div>
+              ) : allError ? (
+                <div className="text-center py-8">
+                  <p className="text-red-500 mb-2">{allError}</p>
+                  <Button onClick={() => window.location.reload()} variant="outline">
+                    Try Again
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {!searchQuery && featuredArticles.length > 0 && (
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-semibold text-foreground">Featured Articles</h2>
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="space-y-3">
+                        {featuredArticles.map((article) => (
+                          <Card
+                            key={article.id}
+                            className="p-4 border-primary/20 bg-primary/5 hover:shadow-md transition-all cursor-pointer"
+                            onClick={() => handleArticleClick(article.id!)}
+                          >
+                            <div className="flex gap-3">
+                              <div className="w-14 h-14 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                {article.image ? (
+                                  <img
+                                    src={article.image}
+                                    alt={article.title}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                      const parent = target.parentElement;
+                                      if (parent) {
+                                        parent.innerHTML = `<span class="text-2xl">${article.imageEmoji || '📄'}</span>`;
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="text-2xl">{article.imageEmoji || '📄'}</span>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {article.category}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    Featured
+                                  </Badge>
+                                </div>
+                                <h3 className="font-semibold text-foreground mb-1 line-clamp-2">
+                                  {article.title}
+                                </h3>
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                                  {article.excerpt}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="w-5 h-5">
+                                      <AvatarImage src={article.authorAvatar} />
+                                      <AvatarFallback>{article.author[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs text-muted-foreground">{article.author}</span>
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">{article.readTime}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-3">
-                    {articles.filter(article => article.featured).map((article) => (
-                      <Card key={article.id} className="p-4 border-primary/20 bg-primary/5 hover:shadow-md transition-all cursor-pointer">
-                        <div className="flex gap-3">
-                          <div className="w-14 h-14 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <span className="text-2xl">{article.image}</span>
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant="secondary" className="text-xs">
+                    <h2 className="text-lg font-semibold text-foreground">
+                      {searchQuery ? `Search Results (${articles.length})` : "Recent Articles"}
+                    </h2>
+                    {articles.length === 0 ? (
+                      <Card className="p-8 text-center border-border">
+                        <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground">
+                          {searchQuery ? "No articles found matching your search." : "No articles available yet."}
+                        </p>
+                      </Card>
+                    ) : (
+                      articles.map((article) => (
+                        <Card
+                          key={article.id}
+                          className="p-4 border-border hover:shadow-md transition-all cursor-pointer"
+                          onClick={() => handleArticleClick(article.id!)}
+                        >
+                          <div className="flex gap-3 mb-3">
+                            <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              {article.image ? (
+                                <img
+                                  src={article.image}
+                                  alt={article.title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent) {
+                                      parent.innerHTML = `<span class="text-xl">${article.imageEmoji || '📄'}</span>`;
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <span className="text-xl">{article.imageEmoji || '📄'}</span>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <Badge variant="outline" className="text-xs mb-1">
                                 {article.category}
                               </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                Featured
-                              </Badge>
-                            </div>
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-2">
-                              {article.title}
-                            </h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                              {article.excerpt}
-                            </p>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Avatar className="w-5 h-5">
-                                  <AvatarImage src={article.authorAvatar} />
-                                  <AvatarFallback>{article.author[0]}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-xs text-muted-foreground">{article.author}</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">{article.readTime}</span>
+                              <h3 className="font-semibold text-foreground line-clamp-2">
+                                {article.title}
+                              </h3>
                             </div>
                           </div>
-                        </div>
-                      </Card>
-                    ))}
+
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                            {article.excerpt}
+                          </p>
+
+                          {article.tags && article.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              {article.tags.map((tag) => (
+                                <Badge key={tag} variant="secondary" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <Eye className="w-3 h-3" />
+                                <span>{article.views.toLocaleString()}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <ThumbsUp className="w-3 h-3" />
+                                <span>{article.likes}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MessageSquare className="w-3 h-3" />
+                                <span>{article.comments}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-3 h-3" />
+                              <span>{formatDate(article.publishedAt)}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                            <Avatar className="w-6 h-6">
+                              <AvatarImage src={article.authorAvatar} />
+                              <AvatarFallback>{article.author[0]}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-muted-foreground">{article.author}</span>
+                            <span className="text-xs text-muted-foreground ml-auto">{article.readTime}</span>
+                          </div>
+                        </Card>
+                      ))
+                    )}
                   </div>
-                </div>
+                </>
               )}
-
-              <div className="space-y-3">
-                <h2 className="text-lg font-semibold text-foreground">Recent Articles</h2>
-                {articles.map((article) => (
-                  <Card key={article.id} className="p-4 border-border hover:shadow-md transition-all cursor-pointer">
-                    <div className="flex gap-3 mb-3">
-                      <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-xl">{article.image}</span>
-                      </div>
-                      <div className="flex-1">
-                        <Badge variant="outline" className="text-xs mb-1">
-                          {article.category}
-                        </Badge>
-                        <h3 className="font-semibold text-foreground line-clamp-2">
-                          {article.title}
-                        </h3>
-                      </div>
-                    </div>
-                    
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                      {article.excerpt}
-                    </p>
-
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {article.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <Eye className="w-3 h-3" />
-                          <span>{article.views.toLocaleString()}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <ThumbsUp className="w-3 h-3" />
-                          <span>{article.likes}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MessageSquare className="w-3 h-3" />
-                          <span>{article.comments}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-3 h-3" />
-                        <span>{article.publishedDate}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-                      <Avatar className="w-6 h-6">
-                        <AvatarImage src={article.authorAvatar} />
-                        <AvatarFallback>{article.author[0]}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs text-muted-foreground">{article.author}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">{article.readTime}</span>
-                    </div>
-                  </Card>
-                ))}
-              </div>
             </TabsContent>
             {categories.slice(1).map((category) => (
               <TabsContent key={category} value={category} className="mt-4 space-y-3">
-                {articles
-                  .filter(article => article.category === category)
-                  .map((article) => (
-                    <Card key={article.id} className="p-4 border-border hover:shadow-md transition-all cursor-pointer">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                    <span className="text-muted-foreground">Loading {category.toLowerCase()} articles...</span>
+                  </div>
+                ) : articles.length === 0 ? (
+                  <Card className="p-8 text-center border-border">
+                    <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">
+                      No {category.toLowerCase()} articles available yet.
+                    </p>
+                  </Card>
+                ) : (
+                  articles.map((article) => (
+                    <Card
+                      key={article.id}
+                      className="p-4 border-border hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => handleArticleClick(article.id!)}
+                    >
                       <div className="flex gap-3 mb-3">
-                        <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                          <span className="text-xl">{article.image}</span>
+                        <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {article.image ? (
+                            <img
+                              src={article.image}
+                              alt={article.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `<span class="text-xl">${article.imageEmoji || '📄'}</span>`;
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span className="text-xl">{article.imageEmoji || '📄'}</span>
+                          )}
                         </div>
                         <div className="flex-1">
                           <h3 className="font-semibold text-foreground line-clamp-2">
@@ -285,7 +346,7 @@ const Articles = () => {
                           </h3>
                         </div>
                       </div>
-                      
+
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                         {article.excerpt}
                       </p>
@@ -301,10 +362,11 @@ const Articles = () => {
                             <span>{article.likes}</span>
                           </div>
                         </div>
-                        <span>{article.publishedDate}</span>
+                        <span>{formatDate(article.publishedAt)}</span>
                       </div>
                     </Card>
-                  ))}
+                  ))
+                )}
               </TabsContent>
             ))}
           </Tabs>

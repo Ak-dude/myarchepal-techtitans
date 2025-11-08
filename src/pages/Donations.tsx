@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Heart, CreditCard, DollarSign, Building2, Mail } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
+import { Heart, CreditCard, DollarSign, Building2, Mail } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,8 +20,40 @@ const Donations = () => {
   const [donorName, setDonorName] = useState("");
   const [donorEmail, setDonorEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [billingAddress, setBillingAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [zipCode, setZipCode] = useState("");
+  const [showThankYou, setShowThankYou] = useState(false);
 
   const predefinedAmounts = ["10", "25", "50", "100", "250"];
+
+  // Format card number with spaces
+  const formatCardNumber = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = matches && matches[0] || '';
+    const parts = [];
+    for (let i = 0; i < match.length; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    if (parts.length) {
+      return parts.join(' ').substring(0, 19);
+    } else {
+      return v;
+    }
+  };
+
+  // Format expiry date (MM/YY)
+  const formatExpiryDate = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    if (v.length >= 2) {
+      return v.substring(0, 2) + (v.length > 2 ? '/' + v.substring(2, 4) : '');
+    }
+    return v;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,37 +77,99 @@ const Donations = () => {
       return;
     }
 
-    // Here you would integrate with a payment processor
+    // Validate credit card information
+    if (!cardNumber || !expiryDate || !cvv || !billingAddress || !city || !zipCode) {
+      toast({
+        title: "Missing Payment Information",
+        description: "Please fill in all credit card and billing details.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic card number validation (should be 16 digits)
+    const cleanCardNumber = cardNumber.replace(/\s/g, '');
+    if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
+      toast({
+        title: "Invalid Card Number",
+        description: "Please enter a valid credit card number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic CVV validation
+    if (cvv.length < 3 || cvv.length > 4) {
+      toast({
+        title: "Invalid CVV",
+        description: "Please enter a valid CVV code (3-4 digits).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Show thank you message
+    setShowThankYou(true);
+
+    // Also show toast notification
     toast({
-      title: "Thank You!",
-      description: `Your ${donationType} donation of $${finalAmount} has been received. We appreciate your support!`,
+      title: "Thank You for Your Donation!",
+      description: `Your ${donationType} donation of $${finalAmount} has been processed successfully.`,
     });
 
-    // Reset form
-    setAmount("");
-    setCustomAmount("");
-    setDonorName("");
-    setDonorEmail("");
-    setMessage("");
+    // Reset form after a delay
+    setTimeout(() => {
+      setAmount("");
+      setCustomAmount("");
+      setDonorName("");
+      setDonorEmail("");
+      setMessage("");
+      setCardNumber("");
+      setExpiryDate("");
+      setCvv("");
+      setBillingAddress("");
+      setCity("");
+      setZipCode("");
+      setShowThankYou(false);
+    }, 5000);
   };
 
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="max-w-md mx-auto bg-background min-h-screen">
-        <AppHeader />
+        <header className="bg-card p-4 border-b border-border sticky top-0 z-10">
+          <PageHeader />
+        </header>
+
+        {/* Thank You Message */}
+        {showThankYou && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-sm mx-auto">
+              <CardContent className="pt-6 text-center space-y-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                  <Heart className="w-8 h-8 text-green-600" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-xl font-bold text-green-600">Thank You!</h2>
+                  <p className="text-muted-foreground">
+                    Your generous donation of ${amount === "custom" ? customAmount : amount} has been received.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Your contribution makes a real difference in preserving archaeological treasures for future generations.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <p className="text-xs text-muted-foreground">
+                    You will receive a confirmation email shortly.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Header Section */}
         <div className="p-6 space-y-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(-1)}
-            className="mb-2"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-
           <div className="text-center space-y-2">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
               <Heart className="w-8 h-8 text-primary" />
@@ -194,6 +288,85 @@ const Donations = () => {
                       onChange={(e) => setMessage(e.target.value)}
                       rows={3}
                     />
+                  </div>
+                </div>
+
+                {/* Payment Information */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Payment Information
+                  </h3>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="card-number">Card Number *</Label>
+                    <Input
+                      id="card-number"
+                      placeholder="1234 5678 9012 3456"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                      maxLength={19}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="expiry-date">Expiry Date *</Label>
+                      <Input
+                        id="expiry-date"
+                        placeholder="MM/YY"
+                        value={expiryDate}
+                        onChange={(e) => setExpiryDate(formatExpiryDate(e.target.value))}
+                        maxLength={5}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cvv">CVV *</Label>
+                      <Input
+                        id="cvv"
+                        placeholder="123"
+                        value={cvv}
+                        onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').substring(0, 4))}
+                        maxLength={4}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="billing-address">Billing Address *</Label>
+                    <Input
+                      id="billing-address"
+                      placeholder="123 Main Street"
+                      value={billingAddress}
+                      onChange={(e) => setBillingAddress(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City *</Label>
+                      <Input
+                        id="city"
+                        placeholder="New York"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="zip-code">ZIP Code *</Label>
+                      <Input
+                        id="zip-code"
+                        placeholder="10001"
+                        value={zipCode}
+                        onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').substring(0, 10))}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
 

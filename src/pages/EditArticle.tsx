@@ -1,15 +1,14 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { FileText, Tag, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { ArticlesService } from "@/services/articles";
-import { AzureOpenAIService } from "@/services/azure-openai";
+import { ArticlesService, Article } from "@/services/articles";
 import { useAuth } from "@/hooks/use-auth";
 import { useArchaeologist } from "@/hooks/use-archaeologist";
 import {
@@ -22,16 +21,17 @@ import {
 
 const categories = ["Research", "Technology", "Conservation", "Methodology", "Environment"];
 
-const CreateArticle = () => {
+const EditArticle = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { isArchaeologist, canCreate } = useArchaeologist();
+  const { isArchaeologist } = useArchaeologist();
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [aiSummary, setAiSummary] = useState<string>("");
-  const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [article, setArticle] = useState<Article | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     excerpt: "",
@@ -41,6 +41,73 @@ const CreateArticle = () => {
     imageEmoji: "📄",
     published: true
   });
+
+  useEffect(() => {
+    const loadArticle = async () => {
+      if (!id) {
+        toast({
+          title: "Error",
+          description: "Article ID not found",
+          variant: "destructive"
+        });
+        navigate("/articles");
+        return;
+      }
+
+      try {
+        setInitialLoading(true);
+        const articleData = await ArticlesService.getArticleById(id);
+
+        if (!articleData) {
+          toast({
+            title: "Error",
+            description: "Article not found",
+            variant: "destructive"
+          });
+          navigate("/articles");
+          return;
+        }
+
+        // Check if user can edit this article
+        if (!user || !isArchaeologist || articleData.authorId !== user.uid) {
+          toast({
+            title: "Permission Error",
+            description: "You don't have permission to edit this article",
+            variant: "destructive"
+          });
+          navigate("/articles");
+          return;
+        }
+
+        setArticle(articleData);
+        setFormData({
+          title: articleData.title,
+          excerpt: articleData.excerpt,
+          content: articleData.content,
+          category: articleData.category,
+          tags: articleData.tags ? articleData.tags.join(", ") : "",
+          imageEmoji: articleData.imageEmoji || "📄",
+          published: articleData.published
+        });
+
+        if (articleData.image) {
+          setImagePreview(articleData.image);
+        }
+      } catch (error) {
+        console.error("Error loading article:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load article",
+          variant: "destructive"
+        });
+        navigate("/articles");
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    loadArticle();
+  }, [id, user, isArchaeologist, navigate, toast]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -73,43 +140,25 @@ const CreateArticle = () => {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
-
-      // Start AI analysis
-      analyzeImageWithAI(file);
     }
   };
 
   const removeImage = () => {
     setSelectedImage(null);
-    setImagePreview(null);
-    setAiSummary("");
-    setAnalyzingImage(false);
-  };
-
-  const analyzeImageWithAI = async (file: File) => {
-    try {
-      setAnalyzingImage(true);
-      console.log('🤖 Starting AI article image analysis...');
-      const summary = await AzureOpenAIService.analyzeArticleImage(file);
-      setAiSummary(summary);
-      toast({
-        title: "AI Analysis Complete",
-        description: "Image has been analyzed and insights generated",
-      });
-    } catch (error) {
-      console.error('AI analysis error:', error);
-      toast({
-        title: "AI Analysis Failed",
-        description: "Unable to analyze image with AI. You can still upload the image.",
-        variant: "destructive"
-      });
-    } finally {
-      setAnalyzingImage(false);
-    }
+    setImagePreview(article?.image || null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!id || !article) {
+      toast({
+        title: "Error",
+        description: "Article not found",
+        variant: "destructive"
+      });
+      return;
+    }
 
     // Basic validation
     if (!formData.title || !formData.excerpt || !formData.content || !formData.category) {
@@ -121,19 +170,10 @@ const CreateArticle = () => {
       return;
     }
 
-    if (!user) {
-      toast({
-        title: "Authentication Error",
-        description: "You must be signed in to create articles",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!isArchaeologist) {
+    if (!user || !isArchaeologist || article.authorId !== user.uid) {
       toast({
         title: "Permission Error",
-        description: "Only verified archaeologists can create articles",
+        description: "You don't have permission to edit this article",
         variant: "destructive"
       });
       return;
@@ -142,62 +182,76 @@ const CreateArticle = () => {
     setLoading(true);
 
     try {
-      const articleData = {
+      const updateData: {
+        title: string;
+        excerpt: string;
+        content: string;
+        category: string;
+        tags: string[];
+        imageEmoji: string;
+        published: boolean;
+        updatedAt: Date;
+        image?: string;
+      } = {
         title: formData.title,
         excerpt: formData.excerpt,
         content: formData.content,
         category: formData.category,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
         imageEmoji: formData.imageEmoji,
-        aiSummary: aiSummary || undefined,
-        author: user.displayName || user.email || 'Unknown Author',
-        authorId: user.uid,
-        authorAvatar: user.photoURL || '',
-        views: 0,
-        likes: 0,
-        comments: 0,
-        featured: false,
-        published: formData.published
+        published: formData.published,
+        updatedAt: new Date()
       };
 
-      const articleId = await ArticlesService.createArticle(articleData);
-
-      // Upload image if selected
-      if (selectedImage && articleId) {
+      // Upload new image if selected
+      if (selectedImage) {
         try {
-          const imageUrl = await ArticlesService.uploadCoverImage(articleId, selectedImage);
-          await ArticlesService.updateArticle(articleId, { image: imageUrl });
+          const imageUrl = await ArticlesService.uploadCoverImage(id, selectedImage);
+          updateData.image = imageUrl;
         } catch (imageError) {
           console.error("Error uploading image:", imageError);
           toast({
             title: "Warning",
-            description: "Article created but image upload failed",
+            description: "Article updated but image upload failed",
             variant: "destructive"
           });
         }
       }
 
+      await ArticlesService.updateArticle(id, updateData);
+
       toast({
         title: "Success!",
-        description: "Your article has been successfully published",
+        description: "Your article has been updated successfully",
       });
 
-      // Navigate to articles page after successful creation
+      // Navigate back to article details after successful update
       setTimeout(() => {
-        navigate("/articles");
+        navigate(`/article/${id}`);
       }, 1500);
 
     } catch (error) {
-      console.error("Error creating article:", error);
+      console.error("Error updating article:", error);
       toast({
         title: "Error",
-        description: "Failed to create article. Please try again.",
+        description: "Failed to update article. Please try again.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading article...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -206,33 +260,6 @@ const CreateArticle = () => {
           <PageHeader />
         </header>
 
-        {/* Auth Status */}
-        {!canCreate && (
-          <div className="p-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-muted-foreground mb-4">
-                    {!user ? 'Please sign in as an archaeologist to create articles.' :
-                     !isArchaeologist ? 'Only verified archaeologists can create articles.' :
-                     'Loading...'}
-                  </p>
-                  {!user && (
-                    <Button
-                      onClick={() => navigate('/authentication/sign-in')}
-                      variant="outline"
-                    >
-                      Sign In as Archaeologist
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Form - Only show if user can create */}
-        {canCreate && (
         <div className="p-4 space-y-6">
           <Card className="p-6 border-border">
             {imagePreview ? (
@@ -274,42 +301,11 @@ const CreateArticle = () => {
               <Button variant="outline" className="w-full" size="sm" type="button" asChild>
                 <span>
                   <Upload className="w-4 h-4 mr-2" />
-                  {selectedImage ? 'Change Image' : 'Upload Image'}
+                  {selectedImage ? 'Change Image' : imagePreview ? 'Change Image' : 'Upload Image'}
                 </span>
               </Button>
             </label>
           </Card>
-
-          {/* AI Image Analysis Section */}
-          {(selectedImage || aiSummary) && (
-            <Card className="border-border">
-              <CardContent className="pt-6">
-                <div className="space-y-2">
-                  <Label className="text-foreground flex items-center gap-2">
-                    🤖 AI Image Analysis
-                    {analyzingImage && <Loader2 className="w-4 h-4 animate-spin" />}
-                  </Label>
-                  {aiSummary ? (
-                    <div className="p-4 bg-muted/50 rounded-lg border border-border">
-                      <p className="text-sm text-muted-foreground mb-2">Generated insights:</p>
-                      <p className="text-sm">{aiSummary}</p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        💡 This AI analysis can help inform your article content and provide additional context for your research.
-                      </p>
-                    </div>
-                  ) : analyzingImage ? (
-                    <div className="p-4 bg-muted/30 rounded-lg border border-dashed border-border">
-                      <p className="text-sm text-muted-foreground">Analyzing image with AI for archaeological insights...</p>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-muted/20 rounded-lg border border-dashed border-border">
-                      <p className="text-sm text-muted-foreground">Upload an image to get AI-generated insights about its archaeological significance.</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -398,19 +394,18 @@ const CreateArticle = () => {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Publishing...
+                    Updating...
                   </>
                 ) : (
-                  "Publish Article"
+                  "Update Article"
                 )}
               </Button>
             </div>
           </form>
         </div>
-        )}
       </div>
     </div>
   );
 };
 
-export default CreateArticle;
+export default EditArticle;

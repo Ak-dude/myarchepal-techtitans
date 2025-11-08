@@ -14,17 +14,18 @@
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, getCurrentUser, getAuthState, signOut as authSignOut } from '@/lib/auth';
+import { User as FirebaseUser, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 /**
  * Authentication context type definition
  */
 interface AuthContextType {
-  user: User | null;                    // Current authenticated user (null if not logged in)
+  user: FirebaseUser | null;             // Current authenticated user (null if not logged in)
   isAuthenticated: boolean;              // Whether user is currently authenticated
   isLoading: boolean;                    // Whether auth state is being loaded
-  refreshUser: () => void;               // Function to refresh user from localStorage
-  logout: () => void;                    // Function to sign out current user
+  refreshUser: () => void;               // Function to refresh user from Firebase
+  logout: () => Promise<void>;           // Function to sign out current user
 }
 
 // Create React context for authentication
@@ -40,38 +41,60 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  */
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // State for current user
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   // State for authentication status
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  // Loading state (true while checking localStorage on mount)
+  // Loading state (true while checking Firebase auth state)
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * Refresh user state from localStorage
-   * Useful after sign-in or profile updates
+   * Refresh user state from Firebase
+   * This is automatically handled by onAuthStateChanged
    */
   const refreshUser = () => {
-    const authState = getAuthState();
-    setUser(authState.user);
-    setIsAuthenticated(authState.isAuthenticated);
+    // Firebase auth state is managed automatically
+    // This function exists for API compatibility
   };
 
   /**
    * Log out current user
-   * Clears auth state from localStorage and updates component state
+   * Signs out from Firebase and updates component state
    */
-  const logout = () => {
-    authSignOut();  // Remove from localStorage
-    setUser(null);
-    setIsAuthenticated(false);
+  const logout = async () => {
+    try {
+      if (auth) {
+        await firebaseSignOut(auth);
+        console.log('✅ User signed out successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error signing out:', error);
+    }
   };
 
-  // Load user from localStorage on component mount
+  // Listen to Firebase auth state changes
   useEffect(() => {
-    const authState = getAuthState();
-    setUser(authState.user);
-    setIsAuthenticated(authState.isAuthenticated);
-    setIsLoading(false);  // Set loading to false after checking localStorage
+    if (!auth) {
+      setIsLoading(false);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('🔥 Firebase auth state changed:', firebaseUser ? 'Signed in' : 'Signed out');
+      if (firebaseUser) {
+        console.log('👤 User details:', {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          emailVerified: firebaseUser.emailVerified
+        });
+      }
+      setUser(firebaseUser);
+      setIsAuthenticated(!!firebaseUser);
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   // Provide auth context to all children
