@@ -18,10 +18,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
-import NewFind from "./pages/NewFind";
+import NewSite from "./pages/NewSite";
+import EditSite from "./pages/EditSite";
 import SiteMap from "./pages/SiteMap";
 import SiteLists from "./pages/SiteLists";
+import SiteDetails from "./pages/SiteDetails";
 import Analysis from "./pages/Analysis";
 import Team from "./pages/Team";
 import Explore from "./pages/Explore";
@@ -31,8 +34,11 @@ import EditProfile from "./pages/EditProfile";
 import SignIn from "./pages/Authentication/sign-in";
 import SignUp from "./pages/Authentication/sign-up";
 import Articles from "./pages/Articles";
+import ArticleDetails from "./pages/ArticleDetails";
 import CreateArticle from "./pages/CreateArticle";
+import EditArticle from "./pages/EditArticle";
 import Artifacts from "./pages/Artifacts";
+import ArtifactDetails from "./pages/ArtifactDetails";
 import CreateArtifact from "./pages/CreateArtifact";
 import Donations from "./pages/Donations";
 import NotFound from "./pages/NotFound";
@@ -55,18 +61,45 @@ const App = () => (
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Index />} />
-            <Route path="/new-find" element={<NewFind />} />
             <Route path="/site-map" element={<SiteMap />} />
             <Route path="/site-lists" element={<SiteLists />} />
+            <Route path="/site/:id" element={<SiteDetails />} />
             <Route path="/analysis" element={<Analysis />} />
             <Route path="/team" element={<Team />} />
             <Route path="/explore" element={<Explore />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/articles" element={<Articles />} />
-            <Route path="/create-article" element={<CreateArticle />} />
+            <Route path="/article/:id" element={<ArticleDetails />} />
             <Route path="/artifacts" element={<Artifacts />} />
-            <Route path="/create-artifact" element={<CreateArtifact />} />
+            <Route path="/artifact/:id" element={<ArtifactDetails />} />
             <Route path="/donations" element={<Donations />} />
+
+            {/* Protected creation routes - require authentication */}
+            <Route path="/new-site" element={
+              <ProtectedRoute>
+                <NewSite />
+              </ProtectedRoute>
+            } />
+            <Route path="/edit-site/:id" element={
+              <ProtectedRoute>
+                <EditSite />
+              </ProtectedRoute>
+            } />
+            <Route path="/create-article" element={
+              <ProtectedRoute>
+                <CreateArticle />
+              </ProtectedRoute>
+            } />
+            <Route path="/edit-article/:id" element={
+              <ProtectedRoute>
+                <EditArticle />
+              </ProtectedRoute>
+            } />
+            <Route path="/create-artifact" element={
+              <ProtectedRoute>
+                <CreateArtifact />
+              </ProtectedRoute>
+            } />
 
             {/* Authentication routes */}
             <Route path="/authentication/sign-in" element={<SignIn />} />

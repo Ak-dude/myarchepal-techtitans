@@ -1,6 +1,6 @@
 /**
  * App Header Component
- * 
+ *
  * Displays the main header with:
  * - App title
  * - User authentication status
@@ -8,15 +8,36 @@
  * - User avatar and greeting when authenticated
  */
 
+import { useState, useEffect } from "react";
 import { Bell, User, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { ArchaeologistService, Archaeologist } from "@/services/archaeologists";
 
 export const AppHeader = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const [archaeologistProfile, setArchaeologistProfile] = useState<Archaeologist | null>(null);
+
+  // Fetch archaeologist profile when user is available
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (user?.uid) {
+        try {
+          const profile = await ArchaeologistService.getArchaeologistProfile(user.uid);
+          setArchaeologistProfile(profile);
+        } catch (error) {
+          console.error('Error fetching archaeologist profile:', error);
+        }
+      } else {
+        setArchaeologistProfile(null);
+      }
+    };
+
+    fetchProfile();
+  }, [user?.uid]);
 
   // Get greeting based on time of day
   const getGreeting = () => {
@@ -26,13 +47,13 @@ export const AppHeader = () => {
     return "Good evening";
   };
 
-  // Get display name (use full name if available, otherwise username)
-  const displayName = user?.name || user?.username || "Guest";
-  
+  // Get display name from archaeologist profile or Firebase user
+  const displayName = archaeologistProfile?.displayName || user?.displayName || user?.email?.split('@')[0] || "Guest";
+
   // Generate initials from display name for avatar fallback
   const initials = user ? displayName
     .split(" ")
-    .map((n) => n[0])
+    .map((n: string) => n[0])
     .join("")
     .toUpperCase()
     .slice(0, 2) : "G";
@@ -76,7 +97,7 @@ export const AppHeader = () => {
       {isAuthenticated && user ? (
         <div className="flex items-center gap-3">
           <Avatar className="w-12 h-12">
-            <AvatarImage src={user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} />
+            <AvatarImage src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
           <div>

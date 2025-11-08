@@ -1,9 +1,9 @@
-import { Camera, Map, FlaskConical, Users } from "lucide-react";
+import { Map, FlaskConical, Users, Compass } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 
 const actions = [
-  { icon: Camera, label: "New Find", subtitle: "Document discovery", color: "bg-primary", textColor: "text-primary-foreground", path: "/new-find" },
+  { icon: Compass, label: "Explore Sites", subtitle: "Browse discoveries", color: "bg-primary", textColor: "text-primary-foreground", path: "/site-lists" },
   { icon: Map, label: "Site Map", subtitle: "View excavation", color: "bg-accent", textColor: "text-accent-foreground", path: "/site-map" },
   { icon: FlaskConical, label: "Analysis", subtitle: "Lab results", color: "bg-secondary", textColor: "text-secondary-foreground", path: "/analysis" },
   { icon: Users, label: "Team", subtitle: "Collaborate", color: "bg-muted", textColor: "text-muted-foreground", path: "/team" },
