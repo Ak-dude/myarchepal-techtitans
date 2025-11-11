@@ -50,6 +50,7 @@ import CreateEvent from "./pages/CreateEvent";
 import GiftShop from "./pages/GiftShop";
 import CheckoutMerchandise from "./pages/CheckoutMerchandise";
 import CreateMerchandise from "./pages/CreateMerchandise";
+import Contributors from "./pages/Contributors";
 import NotFound from "./pages/NotFound";
 
 // Create React Query client instance
@@ -84,6 +85,7 @@ const App = () => (
             <Route path="/checkout/:id" element={<Checkout />} />
             <Route path="/donations" element={<Donations />} />
             <Route path="/gift-shop" element={<GiftShop />} />
+            <Route path="/contributors" element={<Contributors />} />
             <Route path="/checkout-merchandise/:id" element={<CheckoutMerchandise />} />
             <Route path="/contact" element={<ContactUs />} />
             <Route path="/events" element={<Events />} />

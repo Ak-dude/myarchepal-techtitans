@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { MapPin, Calendar, Edit, Share2, Loader2, Building2, Ruler, Star } from "lucide-react";
+import { MapPin, Calendar, Edit, Share2, Loader2, Building2, Ruler, Star, ShoppingCart, DollarSign } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -338,6 +338,55 @@ const ArtifactDetails = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Buy 3D Image Section */}
+          {artifact.model3DForSale && artifact.model3DPrice && (
+            <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5" />
+                  Purchase 3D Digital Image & Print
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">3D Digital Image Download</p>
+                    <p className="text-xs text-muted-foreground">
+                      High-quality 3D image for visualization
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 text-lg font-bold text-primary">
+                    <DollarSign className="w-5 h-5" />
+                    <span>{artifact.model3DPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-card/50 rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium">What's included:</p>
+                  <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                    <li>• Instant digital download of 3D image</li>
+                    <li>• 3D print will be shipped to your address</li>
+                    <li>• High-resolution file suitable for 3D visualization</li>
+                    <li>• Personal use license included</li>
+                  </ul>
+                </div>
+
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={() => navigate(`/checkout/${artifact.id}`)}
+                >
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Buy Now - ${artifact.model3DPrice.toFixed(2)}
+                </Button>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  Secure payment processing • Instant download after purchase
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Description */}
           <Card>

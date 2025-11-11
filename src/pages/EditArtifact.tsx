@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Upload, Image as ImageIcon, MapPin, Calendar, Ruler, Tag, Loader2, Building2 } from "lucide-react";
+import { Upload, Image as ImageIcon, MapPin, Calendar, Ruler, Tag, Loader2, Building2, DollarSign } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 const types = ["Coin", "Ceramic", "Weapon", "Glass", "Personal Ornament", "Sculpture", "Other"];
 const periods = ["Imperial Roman", "Roman", "Late Roman", "Byzantine", "Medieval", "Other"];
 const materials = ["Gold", "Silver", "Bronze", "Iron", "Terracotta", "Ceramic", "Glass", "Marble", "Stone", "Bone", "Wood", "Other"];
@@ -42,6 +43,9 @@ const EditArtifact = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [aiSummary, setAiSummary] = useState<string>("");
   const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [selected3DModel, setSelected3DModel] = useState<File | null>(null);
+  const [model3DForSale, setModel3DForSale] = useState(false);
+  const [model3DPrice, setModel3DPrice] = useState<string>("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -133,6 +137,14 @@ const EditArtifact = () => {
         if (artifactData.images && artifactData.images.length > 0) {
           setImagePreview(artifactData.images[0]);
         }
+
+        // Set existing 3D model sale information if available
+        if (artifactData.model3DForSale !== undefined) {
+          setModel3DForSale(artifactData.model3DForSale);
+        }
+        if (artifactData.model3DPrice) {
+          setModel3DPrice(artifactData.model3DPrice.toString());
+        }
       } catch (error) {
         console.error("Error fetching artifact:", error);
         toast({
@@ -220,6 +232,41 @@ const EditArtifact = () => {
     setAnalyzingImage(false);
   };
 
+  const handle3DModelSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (limit to 10MB for 3D images)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select a 3D image smaller than 10MB",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check file type (image formats)
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select a valid image file (JPG, PNG, GIF, etc.)",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setSelected3DModel(file);
+      toast({
+        title: "3D Image Selected",
+        description: `${file.name} is ready to upload`,
+      });
+    }
+  };
+
+  const remove3DModel = () => {
+    setSelected3DModel(null);
+  };
+
   const analyzeImageWithAI = async (file: File) => {
     try {
       setAnalyzingImage(true);
@@ -299,6 +346,8 @@ const EditArtifact = () => {
         aiImageSummary: aiSummary || artifact.aiImageSummary || "",
         siteName: selectedSite?.name || artifact.siteName || "",
         siteId: formData.siteId,
+        model3DForSale: model3DForSale,
+        model3DPrice: model3DForSale && model3DPrice ? parseFloat(model3DPrice) : undefined,
       };
 
       await ArtifactsService.updateArtifact(id, updateData);
@@ -315,6 +364,21 @@ const EditArtifact = () => {
           toast({
             title: "Warning",
             description: "Artifact updated but image upload failed",
+            variant: "destructive"
+          });
+        }
+      }
+
+      // Upload 3D model if selected
+      if (selected3DModel) {
+        try {
+          const modelUrl = await ArtifactsService.upload3DModel(id, selected3DModel);
+          await ArtifactsService.updateArtifact3DModel(id, modelUrl, selected3DModel.name);
+        } catch (modelError) {
+          console.error("Error uploading 3D model:", modelError);
+          toast({
+            title: "Warning",
+            description: "Artifact updated but 3D model upload failed",
             variant: "destructive"
           });
         }
@@ -463,6 +527,139 @@ const EditArtifact = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* 3D Image Upload Section */}
+          <Card className="border-border">
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-foreground flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" />
+                    Additional 3D Image Upload
+                  </Label>
+                </div>
+
+                {/* Display existing 3D image if available */}
+                {artifact?.model3D && !selected3DModel && (
+                  <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                    <div className="flex items-center gap-3">
+                      <ImageIcon className="w-8 h-8 text-primary" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Current 3D Image</p>
+                        <p className="text-xs text-muted-foreground">
+                          {artifact.model3DFileName || 'Uploaded 3D image'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selected3DModel ? (
+                  <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <ImageIcon className="w-8 h-8 text-primary" />
+                        <div>
+                          <p className="text-sm font-medium">{selected3DModel.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(selected3DModel.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={remove3DModel}
+                      >
+                        Remove New Image
+                      </Button>
+                    </div>
+                  </div>
+                ) : !artifact?.model3D && (
+                  <label htmlFor="model-upload" className="cursor-pointer">
+                    <div className="flex items-center justify-center h-32 bg-muted rounded-lg hover:bg-muted/80 transition-colors border border-dashed border-border">
+                      <div className="text-center">
+                        <ImageIcon className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Click to upload additional 3D image</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Max 10MB (JPG, PNG, GIF, etc.)
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                )}
+
+                <input
+                  id="model-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handle3DModelSelect}
+                  className="hidden"
+                />
+
+                <label htmlFor="model-upload">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                    type="button"
+                    asChild
+                  >
+                    <span>
+                      <Upload className="w-4 h-4 mr-2" />
+                      {selected3DModel ? 'Change New 3D Image' : artifact?.model3D ? 'Replace 3D Image' : 'Upload 3D Image'}
+                    </span>
+                  </Button>
+                </label>
+
+                {/* 3D Image Sale Options */}
+                <div className="space-y-4 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="model-for-sale" className="text-foreground">
+                        Mark 3D Image for Sale
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Allow users to purchase and download the 3D digital images and also 3D prints
+                      </p>
+                    </div>
+                    <Switch
+                      id="model-for-sale"
+                      checked={model3DForSale}
+                      onCheckedChange={setModel3DForSale}
+                      disabled={!artifact?.model3D && !selected3DModel}
+                    />
+                  </div>
+
+                  {model3DForSale && (
+                    <div className="space-y-2">
+                      <Label htmlFor="model-price" className="text-foreground">
+                        Download Price (USD) *
+                      </Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="model-price"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="e.g., 9.99"
+                          value={model3DPrice}
+                          onChange={(e) => setModel3DPrice(e.target.value)}
+                          required={model3DForSale}
+                          className="pl-10 border-border"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Set the price for users to download this 3D image
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">

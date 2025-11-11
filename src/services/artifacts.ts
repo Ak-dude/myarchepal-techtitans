@@ -38,6 +38,8 @@ export interface Artifact {
   finder?: string;
   images?: string[];
   aiImageSummary?: string; // AI-generated summary of uploaded image
+  model3D?: string; // URL to 3D model file (GLB, GLTF, OBJ, etc.)
+  model3DFileName?: string; // Original filename of 3D model
   siteId: string; // Reference to the site this artifact belongs to
   siteName?: string; // Denormalized site name for easier display
   createdAt?: Date | Timestamp;
@@ -48,6 +50,8 @@ export interface Artifact {
   salePrice?: number; // Price per item when marked for sale
   currency?: string; // Currency code (e.g., "USD", "EUR", "GBP")
   quantity?: number; // Number of items available for sale
+  model3DForSale?: boolean; // Whether the 3D model is marked for sale
+  model3DPrice?: number; // Price to download the 3D model
 }
 
 // Collection reference - with error handling
@@ -391,6 +395,93 @@ export class ArtifactsService {
     } catch (error) {
       console.error('Error updating artifact images:', error);
       throw error;
+    }
+  }
+
+  // Upload 3D model file
+  static async upload3DModel(artifactId: string, file: File): Promise<string> {
+    try {
+      console.log('🔄 Starting 3D model upload...');
+      console.log('Storage instance:', storage ? '✅ Available' : '❌ Not available');
+      console.log('File info:', { name: file.name, size: file.size, type: file.type });
+
+      if (!storage) {
+        console.error('❌ Firebase Storage is not initialized');
+        throw new Error('Firebase Storage is not properly initialized');
+      }
+
+      // Create a unique filename
+      const timestamp = Date.now();
+      const filename = `artifacts/${artifactId}/3d-models/${timestamp}_${file.name}`;
+      console.log('📁 Upload path:', filename);
+
+      const storageRef = ref(storage, filename);
+      console.log('🎯 Storage ref created:', storageRef.toString());
+
+      // Upload the file
+      console.log('⬆️ Uploading 3D model...');
+      const snapshot = await uploadBytes(storageRef, file);
+      console.log('✅ Upload completed:', snapshot.metadata);
+
+      // Get the download URL
+      console.log('🔗 Getting download URL...');
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      console.log('✅ Download URL obtained:', downloadURL);
+
+      return downloadURL;
+    } catch (error: any) {
+      console.error('❌ Error uploading 3D model:');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Full error:', error);
+
+      // Provide more specific error messages
+      if (error.code === 'storage/unauthorized') {
+        throw new Error('Upload unauthorized. Please check Firebase Storage security rules.');
+      } else if (error.code === 'storage/quota-exceeded') {
+        throw new Error('Storage quota exceeded. Please upgrade your Firebase plan.');
+      } else if (error.code === 'storage/unauthenticated') {
+        throw new Error('You must be signed in to upload 3D models.');
+      } else {
+        throw new Error(`Upload failed: ${error.message || 'Unknown error'}`);
+      }
+    }
+  }
+
+  // Update artifact with 3D model URL
+  static async updateArtifact3DModel(artifactId: string, modelUrl: string, fileName: string): Promise<void> {
+    try {
+      if (!db) {
+        throw new Error('Firebase is not properly initialized');
+      }
+      const artifactDoc = doc(db, 'Artifacts', artifactId);
+
+      await updateDoc(artifactDoc, {
+        model3D: modelUrl,
+        model3DFileName: fileName,
+        updatedAt: Timestamp.now()
+      });
+    } catch (error) {
+      console.error('Error updating artifact 3D model:', error);
+      throw error;
+    }
+  }
+
+  // Delete 3D model
+  static async delete3DModel(modelUrl: string): Promise<void> {
+    try {
+      if (!storage) {
+        throw new Error('Firebase Storage is not properly initialized');
+      }
+
+      // Create a reference from the URL
+      const modelRef = ref(storage, modelUrl);
+
+      // Delete the file
+      await deleteObject(modelRef);
+    } catch (error) {
+      console.error('Error deleting 3D model:', error);
+      // Don't throw error as model might already be deleted
     }
   }
 }
