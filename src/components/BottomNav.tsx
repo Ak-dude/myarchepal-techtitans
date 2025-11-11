@@ -1,4 +1,4 @@
-import { Home, Compass, Plus, Heart, Newspaper, Package, PlusSquare, Calendar, ShoppingBag, HandHeart } from "lucide-react";
+import { Home, Compass, Plus, Heart, Newspaper, Package, PlusSquare, Calendar, ShoppingBag, HandHeart, PersonStanding, Store } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -31,7 +31,7 @@ const createContentOptions = [
 
 const supportOptions = [
   { icon: Heart, label: "Donate", description: "Support our archaeological preservation work", path: "/donations" },
-  { icon: ShoppingBag, label: "Gift Shop", description: "Browse our collection of unique items", path: "/gift-shop" },
+  { icon: Store, label: "Gift Shop", description: "Browse and purchase archaeological items", path: "/gift-shop" },
 ];
 
 export const BottomNav = () => {

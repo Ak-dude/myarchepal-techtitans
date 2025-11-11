@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ShoppingCart, CreditCard, MapPin, Loader2, CheckCircle2 } from "lucide-react";
+import { ShoppingCart, CreditCard, MapPin, Loader2, CheckCircle2, Download, Package } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,7 @@ const Checkout = () => {
 
   const [purchaseData, setPurchaseData] = useState({
     quantity: 1,
+    email: "",
     cardNumber: "",
     cardName: "",
     expiryDate: "",
@@ -66,10 +67,14 @@ const Checkout = () => {
           return;
         }
 
-        if (!artifactData.forSale || !artifactData.quantity || artifactData.quantity === 0) {
+        // Check if either physical artifact or 3D model is for sale
+        const isPhysicalForSale = artifactData.forSale && artifactData.quantity && artifactData.quantity > 0;
+        const is3DModelForSale = artifactData.model3DForSale && artifactData.model3DPrice;
+
+        if (!isPhysicalForSale && !is3DModelForSale) {
           toast({
             title: "Not Available",
-            description: "This artifact is not available for purchase",
+            description: "This item is not available for purchase",
             variant: "destructive"
           });
           navigate("/artifacts");
@@ -123,6 +128,15 @@ const Checkout = () => {
   };
 
   const validateForm = () => {
+    if (!purchaseData.email) {
+      toast({
+        title: "Validation Error",
+        description: "Please provide your email address",
+        variant: "destructive"
+      });
+      return false;
+    }
+
     if (!purchaseData.cardNumber || !purchaseData.cardName || !purchaseData.expiryDate || !purchaseData.cvv) {
       toast({
         title: "Validation Error",
@@ -165,21 +179,26 @@ const Checkout = () => {
     setProcessing(true);
 
     try {
-      // Calculate new quantity
-      const newQuantity = (artifact.quantity || 0) - purchaseData.quantity;
+      const is3DModelPurchase = artifact.model3DForSale && artifact.model3DPrice;
 
-      // Update artifact quantity in database
-      await ArtifactsService.updateArtifact(id, {
-        quantity: newQuantity
-      });
+      // Only update inventory for physical artifacts, not 3D models
+      if (!is3DModelPurchase && artifact.quantity) {
+        // Calculate new quantity
+        const newQuantity = artifact.quantity - purchaseData.quantity;
+
+        // Update artifact quantity in database
+        await ArtifactsService.updateArtifact(id, {
+          quantity: newQuantity
+        });
+      }
 
       // Show success
       setPurchaseComplete(true);
 
-      // Navigate back after a delay
+      // Navigate back to artifact details after 10 seconds
       setTimeout(() => {
-        navigate("/artifacts");
-      }, 5000);
+        navigate(`/artifact/${id}`);
+      }, 10000);
 
     } catch (error) {
       console.error("Error processing purchase:", error);
@@ -205,29 +224,88 @@ const Checkout = () => {
   }
 
   if (purchaseComplete) {
+    const is3DModelPurchase = artifact?.model3DForSale && artifact?.model3DPrice;
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-foreground mb-2">Thank You for Your Purchase!</h2>
-            <p className="text-muted-foreground mb-4">
-              Your order has been received successfully.
-            </p>
-            <p className="text-sm text-muted-foreground mb-6">
-              We will contact you soon when the order is ready for delivery.
-            </p>
-            <div className="bg-muted p-4 rounded-lg mb-6">
-              <p className="text-sm font-medium mb-2">Order Summary:</p>
-              <p className="text-xs text-muted-foreground">{artifact?.name}</p>
-              <p className="text-xs text-muted-foreground">Quantity: {purchaseData.quantity}</p>
-              <p className="text-sm font-bold text-primary mt-2">
-                Total: {artifact?.currency || 'USD'} {((artifact?.salePrice || 0) * purchaseData.quantity).toLocaleString()}
+          <CardContent className="pt-6 text-center space-y-6">
+            <div>
+              <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-foreground mb-2">Thank You for Your Purchase!</h2>
+              <p className="text-muted-foreground mb-4">
+                Your order has been received successfully.
               </p>
             </div>
-            <Button onClick={() => navigate("/artifacts")} className="w-full">
-              Back to Artifacts
-            </Button>
+
+            {is3DModelPurchase && (
+              <div className="space-y-4 text-left">
+                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
+                  <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                    <Download className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">Your download will start soon</p>
+                    <p className="text-sm text-muted-foreground">
+                      Check your email for the download link and instructions.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Package className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">3D prints will be shipped soon</p>
+                    <p className="text-sm text-muted-foreground">
+                      You'll receive a tracking number via email once your order ships.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!is3DModelPurchase && (
+              <p className="text-sm text-muted-foreground">
+                We will contact you soon when the order is ready for delivery.
+              </p>
+            )}
+
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="text-sm font-medium mb-2">Order Summary:</p>
+              <p className="text-xs text-muted-foreground">{artifact?.name}</p>
+              {is3DModelPurchase ? (
+                <>
+                  <p className="text-xs text-muted-foreground">3D Digital Image & Print</p>
+                  <p className="text-sm font-bold text-primary mt-2">
+                    Total: USD ${artifact?.model3DPrice?.toFixed(2)}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">Quantity: {purchaseData.quantity}</p>
+                  <p className="text-sm font-bold text-primary mt-2">
+                    Total: {artifact?.currency || 'USD'} {((artifact?.salePrice || 0) * purchaseData.quantity).toLocaleString()}
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => navigate(`/artifact/${artifact?.id}`)}
+              >
+                View Artifact
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => navigate("/artifacts")}
+              >
+                Browse More
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -238,7 +316,8 @@ const Checkout = () => {
     return null;
   }
 
-  const totalPrice = (artifact.salePrice || 0) * purchaseData.quantity;
+  const is3DModelPurchase = artifact.model3DForSale && artifact.model3DPrice;
+  const totalPrice = is3DModelPurchase ? artifact.model3DPrice : (artifact.salePrice || 0) * purchaseData.quantity;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -279,42 +358,63 @@ const Checkout = () => {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-foreground mb-1">{artifact.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-2">{artifact.material}</p>
-                  <p className="text-lg font-bold text-blue-600">
-                    {artifact.currency || 'USD'} {artifact.salePrice?.toLocaleString()}
-                    <span className="text-xs text-muted-foreground ml-1">per item</span>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {is3DModelPurchase ? '3D Digital Image & Print' : artifact.material}
                   </p>
+                  {is3DModelPurchase ? (
+                    <p className="text-lg font-bold text-blue-600">
+                      USD ${artifact.model3DPrice?.toFixed(2)}
+                    </p>
+                  ) : (
+                    <p className="text-lg font-bold text-blue-600">
+                      {artifact.currency || 'USD'} {artifact.salePrice?.toLocaleString()}
+                      <span className="text-xs text-muted-foreground ml-1">per item</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-3">
-                <div>
-                  <Label htmlFor="quantity">Quantity</Label>
-                  <Select
-                    value={purchaseData.quantity.toString()}
-                    onValueChange={handleQuantityChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: Math.min(artifact.quantity || 0, 10) }, (_, i) => i + 1).map(num => (
-                        <SelectItem key={num} value={num.toString()}>
-                          {num}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Available: {artifact.quantity}
-                  </p>
-                </div>
+                {!is3DModelPurchase && (
+                  <div>
+                    <Label htmlFor="quantity">Quantity</Label>
+                    <Select
+                      value={purchaseData.quantity.toString()}
+                      onValueChange={handleQuantityChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: Math.min(artifact.quantity || 0, 10) }, (_, i) => i + 1).map(num => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Available: {artifact.quantity}
+                    </p>
+                  </div>
+                )}
+
+                {is3DModelPurchase && (
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm font-medium mb-2">What's included:</p>
+                    <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                      <li>• Instant digital download</li>
+                      <li>• 3D print shipping</li>
+                      <li>• High-resolution file</li>
+                    </ul>
+                  </div>
+                )}
 
                 <div className="pt-3 border-t border-border">
                   <div className="flex justify-between items-center text-lg font-bold">
                     <span>Total:</span>
                     <span className="text-blue-600">
-                      {artifact.currency || 'USD'} {totalPrice.toLocaleString()}
+                      {is3DModelPurchase ? `USD $${totalPrice.toFixed(2)}` : `${artifact.currency || 'USD'} ${totalPrice.toLocaleString()}`}
                     </span>
                   </div>
                 </div>
@@ -332,6 +432,22 @@ const Checkout = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="email">Email Address *</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={purchaseData.email}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    We'll send your download link and receipt to this email
+                  </p>
+                </div>
+
                 <div>
                   <Label htmlFor="cardNumber">Card Number</Label>
                   <Input
@@ -574,7 +690,7 @@ const Checkout = () => {
                 ) : (
                   <>
                     <ShoppingCart className="w-4 h-4 mr-2" />
-                    Buy Artifact
+                    {is3DModelPurchase ? 'Buy 3D Image' : 'Buy Artifact'}
                   </>
                 )}
               </Button>
